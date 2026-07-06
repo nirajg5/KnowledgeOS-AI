@@ -1,202 +1,225 @@
 """
-KnowledgeOS AI
+KnowledgeOS AI — Dashboard (entry point)
 
-Streamlit Frontend
+Run with:  streamlit run app.py
 """
 
-import requests
+from __future__ import annotations
+
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
 import streamlit as st
 
-
-# ==========================================================
-# Page Configuration
-# ==========================================================
+from components.cards import kpi_card, section_header, glass_card_start, glass_card_end, empty_state
+from components.sidebar import render_sidebar
+from components.topbar import render_topbar
+from services import demo_data
+from services.api_client import get_client
+from utils.helpers import human_size, human_time_ago, status_badge, file_type_icon, load_css
+from utils.session_state import init_session_state
 
 st.set_page_config(
-    page_title="KnowledgeOS AI",
+    page_title="KnowledgeOS AI · Dashboard",
     page_icon="🧠",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
+init_session_state()
+load_css()
 
-# ==========================================================
-# Backend URL
-# ==========================================================
+client = get_client(st.session_state.settings["backend_url"])
 
-BACKEND_URL = "http://127.0.0.1:8000"
+if st.session_state.documents is None:
+    st.session_state.documents = client.list_documents()
+    st.session_state.system_status = client.system_status()
 
+documents = st.session_state.documents
 
-# ==========================================================
-# Backend Status
-# ==========================================================
+render_sidebar(active="Dashboard", client=client)
+render_topbar(page_title="Dashboard", client=client)
 
-def backend_status():
-    """
-    Check whether FastAPI backend is running.
-    """
+section_header("Dashboard", "A real-time overview of your enterprise knowledge base.")
 
-    try:
+# ---------------------------------------------------------------- KPI row
+stats = client.document_stats(documents)
+k1, k2, k3, k4 = st.columns(4)
+with k1:
+    kpi_card("📚", f"{stats['total_documents']}", "Total Documents", "12.4%", True)
+with k2:
+    processed_pct = (
+        round(100 * stats["processed_documents"] / stats["total_documents"], 1)
+        if stats["total_documents"] else 0
+    )
+    kpi_card("✅", f"{stats['processed_documents']}", f"Processed ({processed_pct}%)", "8.1%", True)
+with k3:
+    kpi_card("📄", f"{stats['reports_generated']}", "Reports Generated", "4.7%", True)
+with k4:
+    kpi_card("💾", human_size(stats["storage_used_bytes"]), "Storage Used", "2.3%", False)
 
-        response = requests.get(
-            f"{BACKEND_URL}/health",
-            timeout=3
+st.markdown("<br>", unsafe_allow_html=True)
+
+# ---------------------------------------------------------------- Charts row
+col_left, col_right = st.columns([1, 1])
+
+with col_left:
+    glass_card_start()
+    st.markdown("**📊 Document Types**")
+    type_counts = demo_data.document_type_distribution(documents)
+    if type_counts:
+        fig = px.pie(
+            names=[k.upper() for k in type_counts.keys()],
+            values=list(type_counts.values()),
+            hole=0.55,
+            color_discrete_sequence=["#7c5cff", "#4f8cff", "#22d3ee", "#f5a623"],
         )
+        fig.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font_color="#97a3bf",
+            legend=dict(orientation="h", y=-0.1),
+            margin=dict(t=10, b=10, l=10, r=10),
+            height=280,
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        empty_state("📁", "No documents yet", "Upload your first document to see type distribution.")
+    glass_card_end()
 
-        if response.status_code == 200:
-            return True
+with col_right:
+    glass_card_start()
+    st.markdown("**⏳ Processing Status**")
+    status_counts = demo_data.processing_status_distribution(documents)
+    if status_counts:
+        fig = go.Figure(
+            data=[
+                go.Bar(
+                    x=list(status_counts.values()),
+                    y=[s.title() for s in status_counts.keys()],
+                    orientation="h",
+                    marker=dict(
+                        color=["#22c55e", "#f5a623", "#4f8cff", "#f04747"][: len(status_counts)]
+                    ),
+                )
+            ]
+        )
+        fig.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font_color="#97a3bf",
+            margin=dict(t=10, b=10, l=10, r=10),
+            height=280,
+            xaxis=dict(gridcolor="rgba(255,255,255,0.05)"),
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        empty_state("⏳", "Nothing processing", "Processed document status will appear here.")
+    glass_card_end()
 
-    except Exception:
-        pass
+col_left2, col_right2 = st.columns([1, 1])
 
-    return False
+with col_left2:
+    glass_card_start()
+    st.markdown("**🌐 Language Distribution**")
+    lang_counts = demo_data.language_distribution(documents)
+    if lang_counts:
+        fig = px.bar(
+            x=list(lang_counts.keys()),
+            y=list(lang_counts.values()),
+            color_discrete_sequence=["#7c5cff"],
+        )
+        fig.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font_color="#97a3bf",
+            margin=dict(t=10, b=10, l=10, r=10),
+            height=260,
+            yaxis=dict(gridcolor="rgba(255,255,255,0.05)"),
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        empty_state("🌐", "No language data", "Language breakdown appears after processing.")
+    glass_card_end()
 
-
-# ==========================================================
-# Sidebar
-# ==========================================================
-
-st.sidebar.title("🧠 KnowledgeOS AI")
-
-st.sidebar.markdown("---")
-
-st.sidebar.success("Enterprise Knowledge Operating System")
-
-st.sidebar.markdown("---")
-
-st.sidebar.write("### Navigation")
-
-st.sidebar.info("Dashboard")
-
-st.sidebar.info("Upload")
-
-st.sidebar.info("Documents")
-
-st.sidebar.info("Chat")
-
-st.sidebar.info("Reports")
-
-st.sidebar.markdown("---")
-
-st.sidebar.caption("Version 1.0.0")
-
-
-# ==========================================================
-# Main Title
-# ==========================================================
-
-st.title("🧠 KnowledgeOS AI")
-
-st.subheader(
-    "Enterprise Knowledge Operating System powered by Vectorless RAG & Multi-Agent AI"
-)
-
-st.markdown("---")
-
-
-# ==========================================================
-# Backend Status
-# ==========================================================
-
-if backend_status():
-
-    st.success("✅ Backend Connected")
-
-else:
-
-    st.error("❌ Backend Not Running")
-
-
-# ==========================================================
-# Dashboard Cards
-# ==========================================================
-
-col1, col2, col3, col4 = st.columns(4)
-
-with col1:
-    st.metric(
-        "Documents",
-        "0"
+with col_right2:
+    glass_card_start()
+    st.markdown("**🕒 Recent Activity Timeline**")
+    timeline = demo_data.activity_timeline()
+    df = pd.DataFrame(timeline)
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=df["date"], y=df["uploads"], name="Uploads",
+                              line=dict(color="#7c5cff", width=3), mode="lines"))
+    fig.add_trace(go.Scatter(x=df["date"], y=df["processed"], name="Processed",
+                              line=dict(color="#22d3ee", width=3), mode="lines"))
+    fig.add_trace(go.Scatter(x=df["date"], y=df["chats"], name="Chats",
+                              line=dict(color="#4f8cff", width=3), mode="lines"))
+    fig.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font_color="#97a3bf",
+        margin=dict(t=10, b=10, l=10, r=10),
+        height=260,
+        legend=dict(orientation="h", y=1.15),
+        xaxis=dict(gridcolor="rgba(255,255,255,0.03)"),
+        yaxis=dict(gridcolor="rgba(255,255,255,0.05)"),
     )
+    st.plotly_chart(fig, use_container_width=True)
+    glass_card_end()
 
-with col2:
-    st.metric(
-        "Questions",
-        "0"
-    )
+st.markdown("<br>", unsafe_allow_html=True)
 
-with col3:
-    st.metric(
-        "Reports",
-        "0"
-    )
+# ---------------------------------------------------------------- Recent panels
+r1, r2, r3 = st.columns(3)
 
-with col4:
-    st.metric(
-        "Agents",
-        "4"
-    )
+with r1:
+    glass_card_start()
+    st.markdown("**📥 Recent Uploads**")
+    recent_docs = sorted(documents, key=lambda d: d["uploaded_at"], reverse=True)[:5]
+    if recent_docs:
+        for d in recent_docs:
+            st.markdown(
+                f"{file_type_icon(d['type'])} **{d['filename']}**  \n"
+                f"<span style='color:var(--text-muted); font-size:0.8rem;'>"
+                f"{human_time_ago(d['uploaded_at'])} · {status_badge(d['status'])}</span>",
+                unsafe_allow_html=True,
+            )
+            st.markdown("<hr style='margin:6px 0; opacity:0.15;'>", unsafe_allow_html=True)
+    else:
+        empty_state("📥", "No uploads yet", "Uploaded files will show up here.")
+    glass_card_end()
 
+with r2:
+    glass_card_start()
+    st.markdown("**💬 Recent Chats**")
+    chats = demo_data.generate_chats()
+    if chats:
+        for c in chats[:5]:
+            st.markdown(
+                f"🗨️ **{c['title']}**  \n"
+                f"<span style='color:var(--text-muted); font-size:0.8rem;'>"
+                f"{human_time_ago(c['updated_at'])} · {c['message_count']} messages</span>",
+                unsafe_allow_html=True,
+            )
+            st.markdown("<hr style='margin:6px 0; opacity:0.15;'>", unsafe_allow_html=True)
+    else:
+        empty_state("💬", "No chats yet", "Start a conversation from the AI Chat page.")
+    glass_card_end()
 
-st.markdown("---")
-
-
-# ==========================================================
-# Project Overview
-# ==========================================================
-
-st.header("Project Overview")
-
-st.write(
-    """
-KnowledgeOS AI is an Enterprise Knowledge Operating System that combines
-
-- Vectorless Retrieval (PageIndex)
-- LangGraph Multi-Agent AI
-- FastAPI Backend
-- PostgreSQL
-- Streamlit Dashboard
-
-to provide intelligent document understanding and enterprise knowledge management.
-"""
-)
-
-
-# ==========================================================
-# Core Features
-# ==========================================================
-
-st.header("Core Features")
-
-features = [
-
-    "📄 Multi-format Document Upload",
-
-    "🧠 Vectorless RAG",
-
-    "🤖 Multi-Agent AI",
-
-    "💬 AI Chat",
-
-    "📚 Citation-based Answers",
-
-    "📄 Executive Summaries",
-
-    "📊 Enterprise Dashboard",
-
-    "📂 Document Management"
-
-]
-
-for feature in features:
-    st.write(feature)
-
-
-st.markdown("---")
-
-
-# ==========================================================
-# Footer
-# ==========================================================
-
-st.caption("KnowledgeOS AI • Version 1.0.0")
+with r3:
+    glass_card_start()
+    st.markdown("**📄 Recent Reports**")
+    reports = demo_data.generate_reports()
+    if reports:
+        for rep in reports[:5]:
+            st.markdown(
+                f"📄 **{rep['title']}**  \n"
+                f"<span style='color:var(--text-muted); font-size:0.8rem;'>"
+                f"{human_time_ago(rep['created_at'])} · "
+                f"{status_badge('processed' if rep['status']=='completed' else 'failed')}</span>",
+                unsafe_allow_html=True,
+            )
+            st.markdown("<hr style='margin:6px 0; opacity:0.15;'>", unsafe_allow_html=True)
+    else:
+        empty_state("📄", "No reports yet", "Generate your first AI report from a document.")
+    glass_card_end()

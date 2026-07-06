@@ -128,41 +128,62 @@ class ChatService:
         )
 
     # =====================================================
-    # Streaming Chat
-    # =====================================================
+# Stream Chat
+# =====================================================
 
+ 
     @staticmethod
     def stream_document(
-        db: Session,
-        chat: ChatCreate
-    ):
+    db: Session,
+    chat: ChatCreate
+):
 
-        document = (
-            db.query(Document)
-            .filter(
-                Document.id == chat.document_id,
-                Document.is_deleted == False
-            )
-            .first()
+     document = (
+        db.query(Document)
+        .filter(
+            Document.id == chat.document_id,
+            Document.is_deleted == False
+        )
+        .first()
+    )
+
+     if not document:
+        raise Exception("Document not found.")
+
+     if not document.pageindex_doc_id:
+        raise Exception(
+            "Document is not indexed in PageIndex."
         )
 
-        if not document:
-            raise Exception("Document not found.")
+     client = KnowledgePageIndex()
 
-        if not document.pageindex_doc_id:
-            raise Exception(
-                "Document is not indexed in PageIndex."
-            )
+     stream = client.stream_chat(
 
-        client = KnowledgePageIndex()
+        doc_id=document.pageindex_doc_id,
 
-        stream = client.stream_chat(
+        question=chat.user_question
 
-            doc_id=document.pageindex_doc_id,
+    )
 
-            question=chat.user_question
+     return stream
 
-        )
+    def chat(
+    self,
+    doc_id: str,
+    question: str,
+    stream: bool = False
+):
 
-        for chunk in stream:
-            yield chunk
+     return self.client.chat_completions(
+
+        messages=[
+            {
+                "role": "user",
+                "content": question
+            }
+        ],
+
+        doc_id=doc_id,
+
+        stream=stream
+    )

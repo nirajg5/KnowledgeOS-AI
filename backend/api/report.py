@@ -33,3 +33,40 @@ def get_reports(
 ):
 
     return ReportService.get_reports(db)
+
+# ==========================================================
+# Generate AI Report
+# ==========================================================
+
+@router.post("/generate/{document_id}")
+def generate_ai_report(
+    document_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Generate an AI report from a processed document.
+    """
+
+    return ReportService.generate_report(
+        db,
+        document_id
+    )
+
+# ==========================================================
+# Generate & Export AI Report
+# ==========================================================
+
+@router.post("/generate-export/{document_id}")
+def generate_and_export_report(
+    document_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Generate an AI report, export it to Markdown,
+    and save the report record.
+    """
+
+    return ReportService.generate_and_export(
+        db=db,
+        document_id=document_id
+    )

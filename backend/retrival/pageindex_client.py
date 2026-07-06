@@ -4,14 +4,17 @@ PageIndex Client
 Wrapper around the official PageIndex SDK.
 """
 
-from pageindex import PageIndexClient
-
 import time
+
+from pageindex import PageIndexClient
 
 from backend.core.config import settings
 
 
 class KnowledgePageIndex:
+    """
+    Wrapper around the PageIndex SDK.
+    """
 
     def __init__(self):
 
@@ -19,24 +22,22 @@ class KnowledgePageIndex:
             api_key=settings.PAGEINDEX_API_KEY
         )
 
-    # ============================================
+    # =====================================================
     # Upload Document
-    # ============================================
+    # =====================================================
 
     def upload_document(
         self,
         file_path: str
     ):
 
-        response = self.client.submit_document(
+        return self.client.submit_document(
             file_path
         )
 
-        return response
-
-    # ============================================
-    # Document Status
-    # ============================================
+    # =====================================================
+    # Get Document Status
+    # =====================================================
 
     def get_status(
         self,
@@ -47,13 +48,13 @@ class KnowledgePageIndex:
             doc_id
         )
 
-    # ============================================
-    # Chat
-    # ============================================
+    # =====================================================
+    # AI Chat
+    # =====================================================
 
     def chat(
         self,
-        doc_id,
+        doc_id: str,
         question: str
     ):
 
@@ -66,40 +67,42 @@ class KnowledgePageIndex:
                 }
             ],
 
-            doc_id=doc_id
+            doc_id=doc_id,
+
+            enable_citations=True
 
         )
 
-
-# ============================================
-# Streaming Chat
-# ============================================
+    # =====================================================
+    # Streaming Chat
+    # =====================================================
 
     def stream_chat(
-    self,
-    doc_id,
-    question: str
-   ):
+        self,
+        doc_id: str,
+        question: str
+    ):
 
-     return self.client.chat_completions(
+        return self.client.chat_completions(
 
-        messages=[
-            {
-                "role": "user",
-                "content": question
-            }
-        ],
+            messages=[
+                {
+                    "role": "user",
+                    "content": question
+                }
+            ],
 
-        doc_id=doc_id,
+            doc_id=doc_id,
 
-        stream=True,
+            stream=True,
 
-        enable_citations=True
+            enable_citations=True
 
-    )
-    # ============================================
-    # Tree
-    # ============================================
+        )
+
+    # =====================================================
+    # Get Document Tree
+    # =====================================================
 
     def get_tree(
         self,
@@ -109,52 +112,54 @@ class KnowledgePageIndex:
         return self.client.get_tree(
             doc_id
         )
-    
-    # ============================================
-# Get Citations
-# ============================================
+
+    # =====================================================
+    # Get Citations
+    # =====================================================
 
     def get_citations(
-    self,
-    doc_id: str
-   ):
-
-     tree = self.get_tree(doc_id)
-
-     return tree.get("result", {})
-    
-
-    # ==========================================
-# Wait Until Processing Completes
-# ==========================================
-
-
-    def wait_until_ready(
-      self,
-       doc_id: str,
-     interval: int = 3,
-     timeout: int = 300  
+        self,
+        doc_id: str
     ):
 
-     start = time.time()
+        tree = self.get_tree(doc_id)
 
-     while time.time() - start < timeout:
+        return tree.get(
+            "result",
+            {}
+        )
 
-        result = self.get_status(doc_id)
+    # =====================================================
+    # Wait Until Document Processing Completes
+    # =====================================================
 
-        status = result["status"]
+    def wait_until_ready(
+        self,
+        doc_id: str,
+        interval: int = 3,
+        timeout: int = 300
+    ):
 
-        if status == "completed":
-            return result
+        start = time.time()
 
-        elif status == "failed":
-            raise Exception("PageIndex processing failed.")
+        while time.time() - start < timeout:
 
-        time.sleep(interval)
+            result = self.get_status(
+                doc_id
+            )
 
-     raise TimeoutError(
-        "PageIndex processing timed out."
-    )
-    
+            status = result["status"]
 
-    
+            if status == "completed":
+                return result
+
+            if status == "failed":
+                raise Exception(
+                    "PageIndex processing failed."
+                )
+
+            time.sleep(interval)
+
+        raise TimeoutError(
+            "PageIndex processing timed out."
+        )

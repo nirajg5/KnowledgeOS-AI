@@ -13,7 +13,7 @@ from backend.core.config import settings
 from backend.api.document import router as document_router
 from backend.api.chat import router as chat_router
 from backend.api.report import router as report_router
-
+from backend.api.analytics import router as analytics_router
 
 # ==========================================================
 # Application Lifespan
@@ -65,6 +65,7 @@ app.include_router(document_router)
 app.include_router(chat_router)
 
 app.include_router(report_router)
+app.include_router(analytics_router)
 # ==========================================================
 # Root Endpoint
 # ==========================================================

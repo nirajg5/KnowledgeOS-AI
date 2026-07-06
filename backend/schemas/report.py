@@ -9,7 +9,26 @@ from pydantic import BaseModel
 from pydantic import ConfigDict
 
 
+# ======================================================
+# Generate Report Request
+# ======================================================
+
 class ReportCreate(BaseModel):
+
+    document_id: Optional[str] = None
+
+    report_name: str
+
+    report_type: str = "executive"
+
+
+# ======================================================
+# Report Response
+# ======================================================
+
+class ReportResponse(BaseModel):
+
+    id: str
 
     document_id: Optional[str] = None
 
@@ -17,24 +36,13 @@ class ReportCreate(BaseModel):
 
     report_type: str
 
+    summary: Optional[str] = None
 
-class ReportResponse(BaseModel):
+    key_insights: Optional[str] = None
 
-    id: str
+    action_items: Optional[str] = None
 
-    document_id: Optional[str]
-
-    report_name: str
-
-    report_type: str
-
-    summary: Optional[str]
-
-    key_insights: Optional[str]
-
-    action_items: Optional[str]
-
-    report_path: Optional[str]
+    report_path: Optional[str] = None
 
     generated_by: str
 
@@ -45,3 +53,18 @@ class ReportResponse(BaseModel):
     model_config = ConfigDict(
         from_attributes=True
     )
+
+
+# ======================================================
+# Report Preview
+# ======================================================
+
+class ReportPreview(BaseModel):
+
+    report_name: str
+
+    summary: Optional[str] = None
+
+    key_insights: Optional[str] = None
+
+    action_items: Optional[str] = None
